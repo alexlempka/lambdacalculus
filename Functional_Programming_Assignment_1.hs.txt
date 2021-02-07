@@ -1,0 +1,113 @@
+--main = return ()
+
+type Var = String
+
+data Term =
+    Variable Var
+  | Lambda   Var  Term
+  | Apply    Term Term
+--  deriving Show
+
+instance Show Term where
+  show = pretty 
+
+example :: Term
+example = Lambda "a" (Lambda "x" (Apply (Apply (Lambda "y" (Variable "a")) (Variable "x")) (Variable "b")))
+
+pretty :: Term -> String
+pretty = f 0
+    where
+      f i (Variable x) = x
+      f i (Lambda x m) = if i /= 0 then "(" ++ s ++ ")" else s where s = "\\" ++ x ++ ". " ++ f 0 m 
+      f i (Apply  n m) = if i == 2 then "(" ++ s ++ ")" else s where s = f 1 n ++ " " ++ f 2 m
+
+------------------------- Assignment 1
+
+numeral :: Int -> Term
+numeral c = Lambda "f" (Lambda "x" ( abc c ))
+  where
+    abc :: Int -> Term 
+    abc 0 = Variable "x"
+    abc c = Apply (Variable "f")(abc (c-1))
+
+-------------------------
+
+merge :: Ord a => [a] -> [a] -> [a]
+merge xs [] = xs
+merge [] ys = ys
+merge (x:xs) (y:ys)
+    | x == y    = x : merge xs ys
+    | x <= y    = x : merge xs (y:ys)
+    | otherwise = y : merge (x:xs) ys
+
+------------------------- Assignment 2
+
+variables :: [Var] --list
+variables = [f a i | i <- [0..], a <- vars] 
+  where
+    f a i | (i == 0)  = a 
+          | otherwise = a ++ (show i)
+    vars = ["a","b","c","d","e","f","g","h","i","j","k","l","m",
+               "n","o","p","q","r","s","t","u","v","w","x","y","z"] --list of variables
+
+filterVariables :: [Var] -> [Var] -> [Var] --returns False if the list contains an item equal to the first argument.
+filterVariables a b = [i | i <- a, i `notElem` b]
+
+fresh :: [Var] -> Var
+fresh v = (filterVariables variables v) !! 0 
+
+used :: Term -> [Var] 
+used (Variable a)  = [a]
+used (Lambda a b)  = merge [a] (used b)
+used (Apply a' a'') = merge (used a') (used a'')
+
+
+
+
+------------------------- Assignment 3
+
+rename :: Var -> Var -> Term -> Term
+rename a b (Variable var) | (var == a) = Variable b
+                        | otherwise  = Variable var
+rename a b (Lambda var c) | (var == a) = Lambda var c
+                        | otherwise  = Lambda var (rename a b c)
+rename a b (Apply  c d) = Apply (rename a b c) (rename a b d)
+
+
+substitute :: Var -> Term -> Term -> Term
+substitute a b (Variable var)  | (var == a) = b
+                             | otherwise  = Variable var
+substitute a b (Lambda var var2)  | (var == a) = Lambda var var2
+                             | otherwise  = Lambda l (substitute a b (rename var l var2))
+  where
+    l = fresh (merge (used b)(used var2))
+substitute a b (Apply var21 var22) = Apply (substitute a b var21) (substitute a b var22) -- var22does not stand for the number "22", but for the second "edition" of "2". Same for var 21
+
+
+-- Assignment 4
+beta :: Term -> [Term]-- For the beta function, it will take a term and product a list (based on principles of reduction)
+
+lambda :: Var -> Term -> Term --simple lambda function
+lambda a b = Lambda a b
+
+firstapp :: Term -> Term -- first application
+firstapp a b = Apply a b
+
+secondapp :: Term -> Term --second application
+secondapp a b = Apply b a
+
+--I really struggled with this one, trying to pick up some marks for thinking here! Tis part of the programme does not run but I hope my thinking makes sense. 
+
+beta (Apply (Lambda a b) l) = (substitute betaA, betaB)--can't wrap my head around how to substitute and join beta
+where 
+-- this steps show an attempt to build (\x.(βM))N and subsequent terms
+  betaA = map (lambda a) (beta b)(firstapp)
+  betaB = map (lambda a b) (beta b)(secondapp)
+
+
+-- again attempting to get this to work but really struggling with the syntax complexity 
+normalise :: Term -> [Term]
+normalise z | beta z = []
+            | otherwise = beta z !! 0
+
+-- struggling with the rest
